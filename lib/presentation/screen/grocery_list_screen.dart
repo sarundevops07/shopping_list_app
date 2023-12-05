@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shopping_list_app/data/categories.dart';
 import 'package:shopping_list_app/model/grocery_items_model.dart';
 import 'package:shopping_list_app/presentation/screen/new_item_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class GroceryListScreen extends StatefulWidget {
   const GroceryListScreen({
@@ -12,9 +15,37 @@ class GroceryListScreen extends StatefulWidget {
 }
 
 class _GroceryListScreenState extends State<GroceryListScreen> {
-  final List<GroceryItemsModel> _groceryItems = [];
+  List<GroceryItemsModel> _groceryItems = [];
+
+  void _loadState() async {
+    final url = Uri.https(
+        'flutter-shopping-list-ap-8ccfd-default-rtdb.firebaseio.com',
+        'Shopping-list.json');
+    final response = await http.get(url);
+    final Map<String, dynamic> listData = json.decode(response.body);
+
+    final List<GroceryItemsModel> loadedItems = [];
+    for (final item in listData.entries) {
+      final category = categories.entries
+          .firstWhere((categoryItem) =>
+              item.value['category'] == categoryItem.value.title)
+          .value;
+      loadedItems.add(
+        GroceryItemsModel(
+          id: item.key,
+          name: item.value['name'],
+          quantity: item.value['quantity'],
+          category: category,
+        ),
+      );
+    }
+    setState(() {
+      _groceryItems = loadedItems;
+    });
+  }
+
   void _addItem() async {
-    final newItem = await Navigator.push<GroceryItemsModel>(
+    final groceryItem = await Navigator.push<GroceryItemsModel>(
       context,
       MaterialPageRoute(
         builder: (ctx) {
@@ -22,11 +53,11 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
         },
       ),
     );
-    if (newItem == null) {
+    if (groceryItem == null) {
       return;
     }
     setState(() {
-      _groceryItems.add(newItem);
+      _groceryItems.add(groceryItem);
     });
   }
 
@@ -34,6 +65,12 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
     setState(() {
       _groceryItems.remove(item);
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadState();
   }
 
   @override
